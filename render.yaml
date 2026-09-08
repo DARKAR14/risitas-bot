@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: risitas-bot-darkar14
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python main.py
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.10
+      - key: DISCORD_TOKEN
+        sync: false
+      - key: DEVELOPER_ID
+        sync: false
+      - key: MONGODB_URI
+        sync: false
+      - key: TWITCH_CLIENT_ID
+        sync: false
+      - key: TWITCH_CLIENT_SECRET
+        sync: false
+      - key: TWITCH_CHANNEL
+        value: el_smail
+      - key: API_KEY
+        generateValue: true
+      - key: CLIPS_CHANNEL_ID
+        sync: false
+      - key: BIRTHDAY_CHANNEL_ID
+        sync: false
+      - key: BIRTHDAY_ROLE_ID
+        sync: false
+      - key: SPECIAL_USER_ID
+        sync: false
+      - key: MOVIES_ROLE_ID
+        sync: false
+      - key: MOVIES_CHANNEL_ID
+        sync: false
+      - key: MOVIES_ANNOUNCEMENT_CHANNEL_ID
+        sync: false

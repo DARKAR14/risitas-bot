@@ -1,0 +1,27 @@
+# Secretos y configuracion local
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Estado generado en ejecucion
+bot_settings.json
+last_clips.json
+commands/dev/ship_overrides.json
+
+# Artefactos locales y binarios
+*.zip
+bin/
+*.log
+
+# Editores y sistema operativo
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
