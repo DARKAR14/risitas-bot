@@ -8,6 +8,7 @@ import aiohttp
 from aiohttp import web
 
 from utils.embed_templates import birthday_announcement_payload
+from utils.birthday_settings import validate_settings, SettingsConflict
 
 
 @web.middleware
@@ -66,7 +67,7 @@ class BotAPIServer:
                 "Authorization, Content-Type, X-API-Key"
             )
             response.headers["Access-Control-Allow-Methods"] = (
-                "GET, PATCH, POST, OPTIONS"
+                "GET, PUT, PATCH, POST, OPTIONS"
             )
         return response
 
@@ -99,6 +100,7 @@ class BotAPIServer:
             {
                 "service": "Risitas Bot API",
                 "version": "1",
+                "features": ["birthday_editor"],
                 "status": "online",
                 "health": "/health",
                 "keepalive": "/keepalive",
@@ -138,6 +140,8 @@ class BotAPIServer:
                     "toggle_command": "PATCH /api/v1/commands/{name}",
                     "sync_commands": "POST /api/v1/commands/sync",
                     "birthday_embed": "GET /api/v1/embeds/birthday",
+                    "birthday_settings": "GET, PUT /api/v1/birthday/settings",
+                    "birthday_preview": "POST /api/v1/birthday/preview",
                 }
             }
         )
@@ -205,11 +209,58 @@ class BotAPIServer:
         )
 
     async def birthday_embed(self, request):
+        document = await asyncio.to_thread(self.bot.db.birthday_settings().read)
         return web.json_response(
             birthday_announcement_payload(
                 user_mention="<@123456789012345678>",
+                settings=document["settings"],
             )
         )
+
+    def birthday_options(self):
+        channels, roles = [], []
+        for guild in self.bot.guilds:
+            for channel in guild.text_channels:
+                permissions = channel.permissions_for(guild.me) if guild.me else None
+                if permissions and permissions.view_channel and permissions.send_messages and permissions.embed_links:
+                    channels.append({"id": str(channel.id), "name": channel.name, "guild": guild.name, "guild_id": str(guild.id)})
+            for role in guild.roles:
+                if not role.is_default():
+                    roles.append({"id": str(role.id), "name": role.name, "guild_id": str(guild.id)})
+        return {"channels": channels, "roles": roles}
+
+    async def birthday_config(self, request):
+        try:
+            document = await asyncio.to_thread(self.bot.db.birthday_settings().read)
+            return web.json_response({**document, **self.birthday_options(),
+                "preview": birthday_announcement_payload(settings=document["settings"])})
+        except RuntimeError as error:
+            return web.json_response({"error": str(error)}, status=503)
+
+    async def birthday_write(self, request):
+        try:
+            data = await request.json()
+            if not isinstance(data, dict):
+                raise ValueError("Envía un objeto JSON.")
+            settings = validate_settings(data.get("settings"))
+            if request.path.endswith("/preview"):
+                return web.json_response({"preview": birthday_announcement_payload(settings=settings)})
+            options = self.birthday_options()
+            channel = next((item for item in options["channels"] if item["id"] == settings["channel_id"]), None)
+            if settings["enabled"] and not channel:
+                raise ValueError("El bot no puede enviar embeds al canal seleccionado. Revisa sus permisos.")
+            if settings["role_id"] and (not channel or not any(
+                role["id"] == settings["role_id"] and role["guild_id"] == channel["guild_id"] for role in options["roles"]
+            )):
+                raise ValueError("El rol debe pertenecer al servidor del canal seleccionado.")
+            document = await asyncio.to_thread(self.bot.db.birthday_settings().save, settings, data.get("revision"))
+            return web.json_response({**document, **options, "preview": birthday_announcement_payload(settings=settings)})
+        except SettingsConflict as error:
+            return web.json_response({"error": str(error)}, status=409)
+        except (ValueError, TypeError) as error:
+            return web.json_response({"error": str(error)}, status=400)
+        except RuntimeError as error:
+            return web.json_response({"error": str(error)}, status=503)
 
     def create_app(self):
         app = web.Application(
@@ -224,6 +275,9 @@ class BotAPIServer:
         app.router.add_patch("/api/v1/commands/{name}", self.update_command)
         app.router.add_post("/api/v1/commands/sync", self.sync_commands)
         app.router.add_get("/api/v1/embeds/birthday", self.birthday_embed)
+        app.router.add_get("/api/v1/birthday/settings", self.birthday_config)
+        app.router.add_put("/api/v1/birthday/settings", self.birthday_write)
+        app.router.add_post("/api/v1/birthday/preview", self.birthday_write)
         return app
 
     async def start(self):

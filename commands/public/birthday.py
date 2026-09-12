@@ -192,16 +192,20 @@ class BirthdayCommands(commands.Cog):
         )
         print(f"🗑️ Cumpleaños eliminado de MongoDB: {interaction.user.name}")
     
-    async def check_birthdays_today(self):
+    async def check_birthdays_today(self, settings=None, today=None):
         """Verifica y envía felicitaciones de cumpleaños"""
-        if Config.BIRTHDAY_CHANNEL_ID == 0:
+        import asyncio
+        import pytz
+        if settings is None:
+            settings = (await asyncio.to_thread(self.bot.db.birthday_settings().read))["settings"]
+        if not settings["enabled"] or not settings["channel_id"]:
             return
         
-        birthday_channel = self.bot.get_channel(Config.BIRTHDAY_CHANNEL_ID)
+        birthday_channel = self.bot.get_channel(int(settings["channel_id"]))
         if not birthday_channel:
             return
         
-        today = datetime.now()
+        today = today or datetime.now(pytz.timezone(settings["timezone"]))
         birthdays_today = self.bot.db.get_birthdays_today(today.day, today.month)
         
         for birthday in birthdays_today:
@@ -211,12 +215,20 @@ class BirthdayCommands(commands.Cog):
                 payload = birthday_announcement_payload(
                     user_mention=user.mention,
                     avatar_url=user.display_avatar.url,
+                    settings=settings,
                 )
                 embed = discord.Embed.from_dict(payload["embed"])
                 
                 await birthday_channel.send(
                     content=payload["content"],
-                    embed=embed
+                    embed=embed,
+                    allowed_mentions=discord.AllowedMentions(
+                        everyone=False,
+                        users=[user] if settings["mention_user"] else False,
+                        roles=[discord.Object(id=int(settings["role_id"]))]
+                        if settings["mention_role"] and settings["role_id"] else False,
+                        replied_user=False,
+                    ),
                 )
                 
                 print(f"🎂 Felicitación enviada a {user.name}")

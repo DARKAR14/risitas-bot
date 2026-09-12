@@ -33,6 +33,12 @@ class Database:
         if self.client:
             self.client.close()
             print("🔌 Desconectado de MongoDB")
+
+    def birthday_settings(self):
+        from utils.birthday_settings import BirthdaySettings
+        if self.db is None:
+            raise RuntimeError("MongoDB no está disponible; espera a que el bot termine de conectar.")
+        return BirthdaySettings(self.db.settings)
     
     # === CUMPLEAÑOS ===
     def save_birthday(self, user_id: int, day: int, month: int, username: str, display_name: str):

@@ -37,6 +37,22 @@ Los IDs de canales y roles dependen de las funciones que quieras habilitar.
 - `PATCH /api/v1/commands/{name}`: activa o desactiva un comando.
 - `POST /api/v1/commands/sync`: sincroniza con Discord.
 - `GET /api/v1/embeds/birthday`: vista previa de cumpleaños.
+- `GET /api/v1/birthday/settings`: plantilla guardada, revisión y canales/roles disponibles.
+- `PUT /api/v1/birthday/settings`: guarda `{ settings, revision }` en MongoDB.
+- `POST /api/v1/birthday/preview`: renderiza `{ settings }` sin guardar ni enviar mensajes.
+
+El editor está en DarkOps → Risitas · Discord → Cumpleaños. Requiere el permiso
+`risitas` o acceso de administrador. La configuración persiste en `botdb.settings`
+(documento `birthday`) y prevalece sobre los valores iniciales de las variables de
+entorno. El bot lee esa plantilla para enviar felicitaciones, con la misma función
+que genera la vista previa. Guardar no modifica mensajes ya enviados.
+
+Se pueden editar mensaje, título, descripción, color, autor, pie, imagen, miniatura,
+campos adicionales, canal, rol mencionado, notificaciones, hora y zona horaria.
+El rol no se asigna automáticamente. El envío conserva la revisión horaria del bot:
+se realiza durante la hora elegida, no necesariamente en el minuto cero.
+Los límites se validan según la [documentación de Discord](https://docs.discord.com/developers/resources/message#embed-limits).
+Una revisión desactualizada devuelve 409 y no sobrescribe los cambios ajenos.
 
 Salvo `/`, `/health` y `/keepalive`, los endpoints requieren
 `Authorization: Bearer <API_KEY>` o `X-API-Key: <API_KEY>`.

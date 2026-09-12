@@ -20,22 +20,33 @@ BIRTHDAY_ANNOUNCEMENT = {
 def birthday_announcement_payload(
     user_mention="@Usuario",
     avatar_url="https://cdn.discordapp.com/embed/avatars/0.png",
+    settings=None,
 ):
-    role_id = Config.BIRTHDAY_ROLE_ID
-    template = BIRTHDAY_ANNOUNCEMENT
+    template = settings if settings is not None else BIRTHDAY_ANNOUNCEMENT
+    role_id = template.get("role_id", Config.BIRTHDAY_ROLE_ID) or 0
+    values = {"role_id": str(role_id), "user_mention": str(user_mention), "avatar_url": str(avatar_url)}
+    def render(text):
+        import re
+        return re.sub(r"\{(role_id|user_mention|avatar_url)\}", lambda match: values[match[1]], text)
     embed = discord.Embed(
-        title=template["title"],
-        description=template["description"],
+        title=render(template["title"]) or None,
+        description=render(template["description"]) or None,
         color=template["color"],
     )
-    embed.set_image(url=template["image_url"])
-    embed.set_thumbnail(url=avatar_url)
+    if template["image_url"]:
+        embed.set_image(url=render(template["image_url"]))
+    thumbnail = template.get("thumbnail_url", "{avatar_url}")
+    if thumbnail:
+        embed.set_thumbnail(url=render(thumbnail))
+    if template.get("footer"):
+        embed.set_footer(text=render(template["footer"]))
+    if template.get("author"):
+        embed.set_author(name=render(template["author"]))
+    for field in template.get("fields", []):
+        embed.add_field(name=render(field["name"]), value=render(field["value"]), inline=field["inline"])
 
     return {
-        "content": template["content"].format(
-            role_id=role_id,
-            user_mention=user_mention,
-        ),
+        "content": render(template["content"]),
         "embed": embed.to_dict(),
         "placeholders": {
             "user_mention": "Usuario que cumple años",

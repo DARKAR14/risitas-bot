@@ -449,7 +449,10 @@ class DiscordBot(commands.Bot):
     async def check_birthdays(self):
         """Verifica cumpleaños cada hora"""
         try:
-            colombia_tz = pytz.timezone('America/Bogota')
+            settings = (await asyncio.to_thread(self.db.birthday_settings().read))["settings"]
+            if not settings["enabled"]:
+                return
+            colombia_tz = pytz.timezone(settings["timezone"])
             now = datetime.now(colombia_tz)
             current_date = now.strftime("%Y-%m-%d")
             
@@ -457,8 +460,8 @@ class DiscordBot(commands.Bot):
             if self.last_birthday_check == current_date:
                 return
             
-            # Verificar solo a las 7 AM hora colombiana
-            if now.hour != 7:
+            # Usar la hora y zona guardadas por el editor (por defecto, 7 AM Colombia).
+            if now.hour != settings["hour"]:
                 return
             
             print("🎂 Verificando cumpleaños del día...")
@@ -466,7 +469,7 @@ class DiscordBot(commands.Bot):
             # Obtener el cog de cumpleaños
             birthday_cog = self.get_cog("BirthdayCommands")
             if birthday_cog:
-                await birthday_cog.check_birthdays_today()
+                await birthday_cog.check_birthdays_today(settings=settings, today=now)
                 self.last_birthday_check = current_date
                 print(f"✅ Verificación de cumpleaños completada")
             
