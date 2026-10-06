@@ -28,6 +28,14 @@ minutos.
 
 Los IDs de canales y roles dependen de las funciones que quieras habilitar.
 
+## Registrar cumpleaños de otra persona
+
+`/setcumpleaños usuario:@Persona dia:15 mes:8` registra o actualiza el cumpleaños
+de la persona seleccionada en la misma colección de MongoDB que `/cumpleaños`.
+Solo pueden ejecutarlo los administradores del servidor o el desarrollador
+configurado en `DEVELOPER_ID`, incluso si este último no tiene rol de administrador.
+La confirmación es privada y las fechas inválidas no se guardan.
+
 ## API
 
 - `GET /health`: salud publica del proceso y estado de Discord.

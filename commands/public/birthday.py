@@ -1,9 +1,22 @@
+import asyncio
 import discord
 from discord import app_commands
 from discord.ext import commands
 from config import Config
 from datetime import datetime
 from utils.embed_templates import birthday_announcement_payload
+
+
+def birthday_date_error(dia, mes):
+    if mes < 1 or mes > 12:
+        return "❌ El mes debe estar entre 1 y 12."
+    if dia < 1 or dia > 31:
+        return "❌ El día debe estar entre 1 y 31."
+    try:
+        datetime(2000, mes, dia)
+    except ValueError:
+        return f"❌ La fecha {dia}/{mes} no es válida."
+    return None
 
 class BirthdayCommands(commands.Cog):
     def __init__(self, bot):
@@ -17,29 +30,9 @@ class BirthdayCommands(commands.Cog):
     async def cumpleanos(self, interaction: discord.Interaction, dia: int, mes: int):
         """Registra el cumpleaños del usuario"""
         
-        # Validar día y mes
-        if mes < 1 or mes > 12:
-            await interaction.response.send_message(
-                "❌ El mes debe estar entre 1 y 12.",
-                ephemeral=True
-            )
-            return
-        
-        if dia < 1 or dia > 31:
-            await interaction.response.send_message(
-                "❌ El día debe estar entre 1 y 31.",
-                ephemeral=True
-            )
-            return
-        
-        # Validar fecha válida
-        try:
-            datetime(2000, mes, dia)
-        except ValueError:
-            await interaction.response.send_message(
-                f"❌ La fecha {dia}/{mes} no es válida.",
-                ephemeral=True
-            )
+        error = birthday_date_error(dia, mes)
+        if error:
+            await interaction.response.send_message(error, ephemeral=True)
             return
         
         # Guardar cumpleaños en MongoDB
@@ -78,6 +71,55 @@ class BirthdayCommands(commands.Cog):
         await interaction.response.send_message(embed=embed, ephemeral=True)
         print(f"🎂 Cumpleaños registrado en MongoDB: {interaction.user.name} - {dia}/{mes}")
     
+    @app_commands.command(name="setcumpleaños", description="Registra o actualiza el cumpleaños de otro usuario")
+    @app_commands.guild_only()
+    @app_commands.describe(
+        usuario="Usuario cuyo cumpleaños quieres registrar",
+        dia="Día de nacimiento (1-31)",
+        mes="Mes de nacimiento (1-12)",
+    )
+    async def setcumpleanos(self, interaction: discord.Interaction, usuario: discord.Member, dia: int, mes: int):
+        """Solo administradores del servidor o el desarrollador pueden registrar a otros."""
+        # Check at execution time too; command visibility is not authorization.
+        # Do not restrict default_permissions to admins: the developer may not be one.
+        if interaction.guild_id is None or not (
+            interaction.user.id == Config.DEVELOPER_ID or interaction.permissions.administrator
+        ):
+            await interaction.response.send_message(
+                "❌ Solo un administrador del servidor o el desarrollador puede usar este comando.",
+                ephemeral=True,
+            )
+            return
+
+        error = birthday_date_error(dia, mes)
+        if error:
+            await interaction.response.send_message(error, ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        try:
+            await asyncio.to_thread(
+                self.bot.db.save_birthday,
+                user_id=usuario.id,
+                day=dia,
+                month=mes,
+                username=usuario.name,
+                display_name=usuario.display_name,
+            )
+        except Exception as error:
+            print(f"[ERROR] No se pudo guardar el cumpleaños: {type(error).__name__}")
+            await interaction.followup.send(
+                "❌ No se pudo guardar el cumpleaños en MongoDB. Inténtalo de nuevo.",
+                ephemeral=True,
+            )
+            return
+
+        await interaction.followup.send(
+            f"✅ Cumpleaños de {usuario.mention} guardado: **{dia}/{mes}**.",
+            ephemeral=True,
+            allowed_mentions=discord.AllowedMentions.none(),
+        )
+
     @app_commands.command(name="micumpleaños", description="Ver tu cumpleaños registrado")
     async def micumpleanos(self, interaction: discord.Interaction):
         """Muestra el cumpleaños del usuario"""
