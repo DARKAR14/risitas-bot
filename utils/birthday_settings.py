@@ -45,6 +45,8 @@ def validate_settings(value):
     for key in ("channel_id", "role_id"):
         if not isinstance(result[key], str) or (result[key] and not re.fullmatch(r"[1-9][0-9]{14,19}", result[key])):
             raise ValueError(f"{key} debe ser un ID de Discord válido.")
+    if result["mention_role"] and not result["role_id"]:
+        raise ValueError("Selecciona un rol para activar la mención del rol de cumpleaños.")
     if result["enabled"] and not result["channel_id"]:
         raise ValueError("Selecciona un canal antes de activar los cumpleaños.")
     for key, maximum in (("hour", 23), ("color", 0xFFFFFF)):

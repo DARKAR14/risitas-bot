@@ -41,6 +41,18 @@ def example():
 
 
 class SettingsTests(unittest.TestCase):
+    def test_missing_role_never_renders_unknown_role_mention(self):
+        settings = {**example(), "role_id": "", "description": "Feliz día"}
+        payload = birthday_announcement_payload(settings=settings)
+        self.assertEqual(payload["content"], "🎂 ¡Hoy es el cumpleaños de @Usuario!")
+        with self.assertRaisesRegex(ValueError, "Selecciona un rol"):
+            validate_settings(settings)
+        validate_settings({**settings, "mention_role": False})
+
+    def test_selected_role_is_preserved_in_mention(self):
+        payload = birthday_announcement_payload(settings=example())
+        self.assertIn(f"<@&{ROLE}>", payload["content"])
+
     def test_persists_exact_template_and_rejects_concurrent_overwrite(self):
         collection = Collection()
         store = BirthdaySettings(collection)

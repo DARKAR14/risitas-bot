@@ -27,6 +27,9 @@ def birthday_announcement_payload(
     values = {"role_id": str(role_id), "user_mention": str(user_mention), "avatar_url": str(avatar_url)}
     def render(text):
         import re
+        # Missing role IDs must never become an invalid Discord mention (<@&0>).
+        if not role_id:
+            text = text.replace("<@&{role_id}>", "cumpleaños")
         return re.sub(r"\{(role_id|user_mention|avatar_url)\}", lambda match: values[match[1]], text)
     embed = discord.Embed(
         title=render(template["title"]) or None,
